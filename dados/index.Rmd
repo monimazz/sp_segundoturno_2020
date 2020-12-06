@@ -112,7 +112,106 @@ Column {data-width=500}
 
 ```{r}
 branco_total <- sum(branconulo$`sum(QT_VOTOS)`)
-valueBox(branco_total)
+valueBox(branco_total, icon = 'fa-sticky-note')
+```
+
+### Total de abstenções {.value-box}
+
+```{r}
+abst_total <- sum(abst$`sum(QT_ABSTENCOES)`)
+valueBox(abst_total, icon = 'fa-times-circle' )
+```
+
+### Votos
+
+```{r}
+library(plotly)
+
+prefvotos_total <- estado %>% 
+  filter(NM_MUNICIPIO == 'SÃO PAULO') %>% 
+  group_by(NM_VOTAVEL) %>%
+  summarize(votos = sum(QT_VOTOS)) %>%
+  ungroup()
+
+
+p <- prefvotos_total %>%
+  ggplot(aes(NM_VOTAVEL, votos)) +
+  geom_col(fill = "#007f5f") +
+  coord_flip() +
+  theme_minimal() +
+  labs(x="", y = "Total de votos", title = "Resultado das eleições")
+
+ggplotly(p)
+```
+
+
+
+Column {data-width=500}  {.tabset}
+-------------------------------------
+
+
+### Ganhador por zona pref
+```{r, message=FALSE, warning=FALSE}
+# quem ganhou por zona boulos e covas
+prefvotos <- estado %>% 
+  filter(NM_MUNICIPIO == 'SÃO PAULO') %>% 
+  group_by(NR_ZONA, NM_VOTAVEL) %>%
+  summarize(votos = sum(QT_VOTOS)) %>%
+  ungroup()
+
+ganhador <- prefvotos %>%
+  group_by(NR_ZONA) %>% 
+  pivot_wider(NR_ZONA, names_from = NM_VOTAVEL, values_from = votos)
+
+ganhador <- ganhador %>% 
+  mutate(ganhador = case_when(`GUILHERME BOULOS` > `BRUNO COVAS` ~ 'Boulos',
+                              TRUE ~ 'Covas'),
+         votos_ganhador = case_when(`GUILHERME BOULOS` > `BRUNO COVAS` ~ `GUILHERME BOULOS`,
+                              TRUE ~ `BRUNO COVAS`)) %>% 
+  select(NR_ZONA, ganhador, votos_ganhador) %>% 
+  rename(ZEFINAL = NR_ZONA)
+
+ganhadormapa <- left_join(capital, ganhador)
+
+
+
+#cores
+pal <- colorFactor(c("#2d00f7","#00b4d8"), ganhadormapa$ganhador)
+
+pal <- colorFactor(topo.colors(2), ganhadormapa$ganhador)
+
+
+#adicionar dados
+labels <- sprintf(
+  "<strong>%s</strong><br/>%g votos</sup>",
+  ganhadormapa$ganhador, ganhadormapa$votos_ganhador
+) %>% lapply(htmltools::HTML)
+
+#mapa
+mapaganhador <- leaflet(ganhadormapa) %>%
+  addPolygons(
+    fillColor = ~pal(ganhador),
+    weight = 2,
+    opacity = 1,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.7,
+    highlight = highlightOptions(
+      weight = 5,
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labels,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto"))
+
+
+mapaganhador %>%
+  addLegend(pal = pal, values = ~ganhador, opacity = 0.7, title = NULL,
+            position = "bottomright")
 ```
 
 ### Brancos e Nulos no segundo turno
@@ -156,17 +255,6 @@ mapabrancos %>%
   addLegend(pal = pal, values = ~`sum(QT_VOTOS)`, opacity = 0.7, title = NULL,
             position = "bottomright")
 
-```
-
-
-Column {data-width=500}
--------------------------------------
-
-### Total de abstenções {.value-box}
-
-```{r}
-abst_total <- sum(abst$`sum(QT_ABSTENCOES)`)
-valueBox(abst_total)
 ```
 
 
@@ -215,7 +303,7 @@ abstmapa %>%
 Câmara de São Paulo
 =================================
 
-Column {data-width=400}
+Column {data-width=400} {.tabset}
 -------------------------------------
 
 ### Partidos Eleitos
@@ -246,10 +334,78 @@ vereadores_eleitos_capital %>%
 ```
 
 
-Column {data-width=600}
+Column {data-width=600}  {.tabset}
 -------------------------------------
 
-### Votos do Centrão para vereadores por região 
+
+### Ganhadores por zona
+```{r, warning=FALSE, message=FALSE}
+vereadores_eleitos_capital_TUDO <- vereadores %>%
+  filter(NM_MUNICIPIO == 'SÃO PAULO') %>%
+  filter(DS_SIT_TOT_TURNO != 'SUPLENTE',
+         DS_SIT_TOT_TURNO != 'NÃO ELEITO') %>%
+  rename(ZEFINAL = NR_ZONA)
+
+verezonas <-   vereadores_eleitos_capital_TUDO %>%
+  group_by(SG_PARTIDO, 
+           ZEFINAL) %>%
+  summarize(votos = sum(QT_VOTOS_NOMINAIS)) %>%
+  ungroup()
+
+
+ganhador_vereador <- verezonas %>%
+  group_by(ZEFINAL) %>% 
+  pivot_wider(ZEFINAL, names_from = SG_PARTIDO, values_from = votos)
+
+library(readxl)
+ganhador_vereador <- read_excel('ganhador_vereador.xlsx')
+
+ganhadormapa_vereador <- left_join(capital, ganhador_vereador)
+
+
+
+#cores
+
+pal <- colorFactor('Paired', ganhadormapa_vereador$ganhador)
+
+
+#adicionar dados
+labels <- sprintf(
+  "<strong>%s</strong><br/>%g votos </sup>",
+  ganhadormapa_vereador$ganhador, ganhadormapa_vereador$votos
+) %>% lapply(htmltools::HTML)
+
+#mapa
+mapaganhador_vereador <- leaflet(ganhadormapa_vereador) %>%
+  addPolygons(
+    fillColor = ~pal(ganhador),
+    weight = 2,
+    opacity = 1,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.7,
+    highlight = highlightOptions(
+      weight = 5,
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labels,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto"))
+
+
+mapaganhador_vereador %>%
+  addLegend(pal = pal, values = ~ganhador, opacity = 0.7, title = NULL,
+            position = "bottomright")
+
+```
+
+
+
+### Centrão
 ```{r, warning=FALSE, message=FALSE}
 centrao <- vereadores_eleitos_capital_TUDO %>%
   filter(SG_PARTIDO != 'PT',
@@ -301,13 +457,7 @@ mapacentrao %>%
 ```
 
 
-Votos NOVO e PSOL por região
-===========================================
-
-Column {data-width=500}
--------------------------------------
-
-### Votos no NOVO para vereador
+### NOVO
 ```{r, warning=FALSE, message=FALSE}
 novo <- vereadores_eleitos_capital_TUDO %>%
   filter(SG_PARTIDO == 'NOVO') %>%
@@ -354,10 +504,7 @@ mapanovo %>%
 ```
 
 
-Column {data-width=500}
--------------------------------------
-
-### Votos no PSOL para vereador
+### PSOL
 ```{r, warning=FALSE, message=FALSE}
 psol <- vereadores_eleitos_capital_TUDO %>%
   filter(SG_PARTIDO == 'PSOL') %>%
@@ -404,13 +551,8 @@ mapapsol %>%
 ```
 
 
-Votos PSDB e PT por região
-=========================================
 
-Column {data-width=500}
--------------------------------------
-
-### Votos no PT para vereadores
+### PT
 ```{r, warning=FALSE, message=FALSE}
 pt <- vereadores_eleitos_capital_TUDO %>%
   filter(SG_PARTIDO == 'PT') %>%
@@ -455,10 +597,9 @@ mapapt %>%
             position = "bottomright")
 ```
 
-Column {data-width=500}
--------------------------------------
 
-### Votos no PSDB para vereadores
+
+### PSDB
 ```{r, warning=FALSE, message=FALSE}
 psdb <- vereadores_eleitos_capital_TUDO %>%
   filter(SG_PARTIDO == 'PSDB') %>%
@@ -508,7 +649,7 @@ mapapsdb %>%
 Possíveis Laranjas - vereadores
 ============================================
 
-Column {data-width=600}
+Column {data-width=600} {.tabset}
 -------------------------------------
 
 ### Municípios
@@ -522,8 +663,8 @@ laranja %>%
   geom_col(fill = "#007f5f") +
   coord_flip() +
   theme_ipsum_tw() +
-  labs(x = "", y ="Contagem de municípios", title = "Prinicipais municípios",
-       subtitle = "Municíipios com candidatos deferidos e aptos com voto nominal igual a zero")
+  labs(x = "", y ="Contagem de municípios", title = "Principais municípios",
+       subtitle = "Municípios com candidatos deferidos e aptos com voto nominal igual a zero")
 ```
 
 ### Partidos
