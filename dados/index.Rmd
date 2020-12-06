@@ -1,5 +1,5 @@
 ---
-title: "Segundo turno em São Paulo"
+title: "2 turno em São Paulo"
 output: 
   flexdashboard::flex_dashboard:
     theme: flatly
