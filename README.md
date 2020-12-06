@@ -1,4 +1,4 @@
-# sp_segundoturno_2020
+# Resultado das eleições em São Paulo, SP
 Visualização dos dados das eleições de 2020 em São Paulo
 
 ##Fontes
